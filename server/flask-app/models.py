@@ -1,18 +1,12 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import JWTManager, create_access_token
+from datetime import timedelta
 
 db = SQLAlchemy()
 
 
-class Device(db.Model):
-    __tablename__ = 'devices'
-    device_id = db.Column(db.Integer, primary_key=True)
-    ssid = db.Column(db.String, nullable=False)
-    name = db.Column(db.String, nullable=False)
-    location = db.Column(db.String, nullable=True)
-    created_at = db.Column(db.DateTime(), default=datetime.utcnow, index=True)
-    users = db.relationship('User', secondary='user_device', back_populates='devices')
-    
 class User(db.Model):
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +15,49 @@ class User(db.Model):
     password_hash = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime(), default=datetime.utcnow, index=True)
     devices = db.relationship('Device', secondary='user_device', back_populates='users')
-# Association table for the many-to-many relationship between Users and Devices
+
+    def set_password(self, password):
+        #Hash the password when setting it
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        #Check if the provided password matches the stored hash
+        return check_password_hash(self.password_hash, password)
+
+    def generate_jwt(self):
+        #Generate JWT token for the user that expires after 10 days
+        return create_access_token(identity=self.user_id, expires_delta=timedelta(days=10))
+    
+    def to_dict(self):
+        # Convert the user instance to a dictionary
+        return {
+            "user_id": self.user_id,
+            "username": self.username,
+            "email": self.email,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "devices": [device.to_dict() for device in self.devices] if self.devices else [],
+        }
+    
+class Device(db.Model):
+    __tablename__ = 'devices'
+    device_id = db.Column(db.Integer, primary_key=True)
+    ssid = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, nullable=False)
+    location = db.Column(db.String, nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.utcnow, index=True)
+    users = db.relationship('User', secondary='user_device', back_populates='devices')
+
+    def to_dict(self):
+        # Convert the user instance to a dictionary
+        return {
+            "device_id": self.device_id,
+            "ssid": self.ssid,
+            "name": self.name,
+            "location":self.location,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+    
+
 user_device = db.Table('user_device',
     db.Column('user_id', db.Integer, db.ForeignKey('users.user_id'), primary_key=True),
     db.Column('device_id', db.Integer, db.ForeignKey('devices.device_id'), primary_key=True)
@@ -37,6 +73,19 @@ class Sensor(db.Model):
     min_value = db.Column(db.Float, nullable=True)
     max_value = db.Column(db.Float, nullable=True)
     measurement_frequency = db.Column(db.Integer, nullable=True)
+
+    def to_dict(self):
+        return {
+            "sensor_id": self.sensor_id,
+            "device_id": self.device_id,
+            "sensor_type": self.sensor_type,
+            "unit": self.unit,
+            "created_at": self.created_at,
+            "min_value": self.min_value,
+            "max_value": self.max_value,
+            "measurement_frequency": self.measurement_frequency
+        }
+
 
 class FertilizingDevice(db.Model):
     __tablename__ = 'fertilizing_devices'
@@ -69,4 +118,3 @@ class DosageHistory(db.Model):
     device_id = db.Column(db.Integer, db.ForeignKey('devices.device_id'), nullable=False)
     dose = db.Column(db.Float, nullable=False)
     dosed_at = db.Column(db.DateTime(), default=datetime.utcnow, index=True)
-
