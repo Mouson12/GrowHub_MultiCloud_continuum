@@ -1,0 +1,17 @@
+- name: Setup common base system
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Setup master node
+  hosts: master
+  become: true
+  roles:
+    - k8s-master
+
+- name: Setup worker nodes
+  hosts: workers
+  become: true
+  roles:
+    - k8s-worker

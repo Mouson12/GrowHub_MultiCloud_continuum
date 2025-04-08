@@ -1,0 +1,14 @@
+- name: Update apt and install base packages
+  apt:
+    update_cache: yes
+    name:
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - software-properties-common
+    state: present
+
+- name: Disable swap
+  command: swapoff -a
+  when: ansible_swaptotal_mb > 0
